@@ -6,7 +6,7 @@ library(mltools)
 
 #Random Forest Function
 
-randomFunction<-function(y,nt,data,n,n.col,rare.class,weight,k,n.tree,m.try){
+randomFunction<-function(y,nt,data,n,n.col,rare.class,k,n.tree,m.try){
   sensi.model<-c()
   speci.model<-c()
   roc.model<-c()
@@ -55,11 +55,11 @@ randomFunction<-function(y,nt,data,n,n.col,rare.class,weight,k,n.tree,m.try){
     
     #Random Forest
     if(y=="sick"){
-      modelo <- ranger(Sick~., data = t.train, importance="impurity", num.trees = n.tree, mtry = m.try, case.weights=weights ,class.weights = weight, probability = TRUE)
+      modelo <- ranger(Sick~., data = t.train, importance="impurity", num.trees = n.tree, mtry = m.try, case.weights=weights, probability = TRUE)
     }else if(y=="lameness"){
-      modelo <- ranger(Lameness~., data = t.train, importance="impurity", num.trees = n.tree, mtry = m.try, case.weights=weights ,class.weights = weight, probability = TRUE)
+      modelo <- ranger(Lameness~., data = t.train, importance="impurity", num.trees = n.tree, mtry = m.try, case.weights=weights, probability = TRUE)
     }else{
-      modelo <- ranger(Mastitis~., data = t.train, importance="impurity", num.trees = n.tree, mtry = m.try, case.weights=weights ,class.weights = weight, probability = TRUE)
+      modelo <- ranger(Mastitis~., data = t.train, importance="impurity", num.trees = n.tree, mtry = m.try, case.weights=weights, probability = TRUE)
     }
     
     #Predictions
