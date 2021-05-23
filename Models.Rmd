@@ -1,0 +1,146 @@
+---
+title: "Models"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment="")
+library(dplyr)
+library(keras)
+library(tensorflow)
+library(reticulate)
+library(ggplot2)
+library(ROSE)
+library(ranger)
+library(e1071)
+library(caret)
+library(mixOmics)
+library(knitr)
+library(kableExtra)
+library(openxlsx)
+library(mltools)
+
+source("RFfunction.R")
+source("SVMFunction.R")
+source("NNFunction.R")
+source("EnsembleFunction.R")
+source("CNNFunction.R")
+source("PLSFunction.R")
+```
+
+# Data
+
+```{r}
+dat<- read.csv("FinalData.csv",header = TRUE, stringsAsFactors = FALSE)
+df<-dat[,11:885]
+df[, c(4:875)] <- sapply(df[, c(4:875)], as.numeric)
+df[, 1] <- as.factor(df[, 1])
+df[, 2] <- as.factor(df[, 2])
+df[, 3] <- as.factor(df[, 3])
+
+#check table
+table(df$Sick)
+table(df$Lameness)
+table(df$Mastitis)
+
+#check classes distribution
+prop.table(table(df$Sick))
+prop.table(table(df$Lameness))
+prop.table(table(df$Mastitis))
+```
+
+
+# Preprocessing
+
+## Savitzky-Golay baseline correction
+
+```{r}
+sg2.data <- savitzkyGolay(X = df[, c(4:875)], m = 2, p = 2, w = 15)
+nmean.spectra<-colMeans(dat[, c(14:885)])
+sg2mean.spectra<-colMeans(sg2.data)
+plot(nmean.spectra, type = "l", main= "Spectra data")
+plot(sg2mean.spectra, type = "l", col='red')
+```
+
+## Normalisation 
+```{r}
+#Standard Normal Variate (SNV)
+nom.data<-scale(sg2.data)
+
+mean.spectra<-colMeans(nom.data)
+plot(mean.spectra,type = "l",main= "Normalized by SNV Spectra data")
+```
+
+# Calibration of Models
+
+```{r Data, message=FALSE, warning=FALSE, echo=FALSE}
+#set.seed(123)
+#Corrected data
+corrected.data<- read.csv("CorrectedData.csv",header = TRUE)
+corrected.data[, 1] <- as.factor(corrected.data[, 1])
+corrected.data[, 2] <- as.factor(corrected.data[, 2])
+corrected.data[, 3] <- as.factor(corrected.data[, 3])
+corrected.data[, 4] <- as.numeric(as.factor(corrected.data$MF))
+n = as.numeric(dim(corrected.data)[[1]])
+n.col<-as.numeric(dim(corrected.data)[[2]])-1
+```
+
+#Data partition and creating the datasets for Monte Carlo cross validation
+```{r  CVData}
+nt<-0.8
+k<-10
+i=0
+
+dfs <- res <- list()
+while (i<k) {
+  df<-corrected.data[sample(nrow(corrected.data)), ] 
+  if(1 %in% df[1809:1909,2] && 1 %in% df[1809:1909,3]){
+    i=i+1
+    dfs[[i]] <- df
+  }else{
+    i=i
+  }
+}
+```
+
+## Models
+
+### PLS
+```{r PLSGeneral}
+Sick.pls<-plsFunction("sick",nt,dfs,n,n.col,4,k)
+```
+
+
+### Random Forest
+
+```{r RFGeneral}
+Sick.rf<-randomFunction("sick",nt,dfs,n,n.col,0.0049,k,800,30)
+```
+
+
+### Support Vector Machine
+
+```{r SVMGeneral}
+Sick.svm<-spvFunction("sick",nt,dfs,n,n.col,list("0"=0.065,"1"=0.935),k,"radial")
+```
+
+### Neural Network
+
+```{r NNGeneral, echo = TRUE, message=FALSE, warning=FALSE}
+Sick.nn<-nnFunction("sick",nt,dfs,n,n.col,k,list("0"=0.065,"1"=0.935))
+```
+
+### Convolutional Neural Network
+
+```{r CNNGeneral, echo = TRUE, message=FALSE, warning=FALSE}
+Sick.cnn<-cnnFunction("sick",nt,dfs,n,n.col,k,list("0"=0.045,"1"=0.955))
+```
+
+### Ensemble Model
+
+```{r EnsembleGeneral}
+Sick.ens<-ensembleFunction("sick",nt,n,dfs, Sick.rf$df.proba, Sick.cnn$df.proba, Sick.rf$df.values, Sick.svm$df.values, Sick.cnn$df.values, 0.25, 0.75)
+```
+
+
+
